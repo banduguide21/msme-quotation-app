@@ -26,68 +26,6 @@ A **free, open-source, GST-compliant quotation generator** for Indian MSMEs. Cre
 | PDF Export | Browser Print-to-PDF | ✅ Yes |
 
 ---
-
-## 📋 Step-by-Step Setup (Novice-Friendly)
-
-### Phase 1: Repository Setup (5 minutes)
-
-#### Step 1.1: Create GitHub Account
-1. Go to **github.com**
-2. Click **Sign up**
-3. Enter email, create password, verify email
-4. Done!
-
-#### Step 1.2: Create Repository
-1. Click **+** (top right corner)
-2. Select **New repository**
-3. Fill in:
-   - **Repository name:** `msme-quotation-app`
-   - **Description:** "AI Quotation App for Indian MSMEs"
-   - **Visibility:** **Public** (required for free hosting)
-4. Check "Add a README file"
-5. Click **Create repository**
-
-#### Step 1.3: Enable GitHub Pages
-1. Go to your repository
-2. Click **Settings** tab
-3. Left sidebar → Click **Pages**
-4. Under "Source" → Select "Deploy from a branch"
-5. Branch: `main` | Folder: `/ (root)`
-6. Click **Save**
-7. ✅ Your app is now at: `https://YOUR_USERNAME.github.io/msme-quotation-app`
-
----
-
-### Phase 2: Upload Files (10 minutes)
-
-#### Step 2.1: Add index.html
-1. In GitHub, click **Add file** → **Create new file**
-2. Name: `index.html`
-3. Copy ALL content from `index.html` (provided separately)
-4. Paste into GitHub
-5. Scroll down → **Commit changes**
-6. Message: "Add main HTML structure"
-7. Click **Commit**
-
-#### Step 2.2: Add style.css
-1. Click **Add file** → **Create new file**
-2. Name: `style.css`
-3. Copy ALL content from `style.css` (provided separately)
-4. Paste into GitHub
-5. **Commit changes** → Message: "Add styling"
-
-#### Step 2.3: Add app.js
-1. Click **Add file** → **Create new file**
-2. Name: `app.js`
-3. Copy ALL content from `app.js` (provided separately)
-4. Paste into GitHub
-5. **Commit changes** → Message: "Add app logic"
-
-#### Step 2.4: Update README.md
-1. Go to your repository → Click **README.md**
-2. Click ✏️ (Edit)
-3. Replace content with this:
-
 ```markdown
 # 💼 MSME Quotation App
 
@@ -101,7 +39,7 @@ Professional quotation generator for Indian MSMEs with GST compliance.
 - 100% free
 
 ## 🚀 Launch App
-[👉 Open the App](https://YOUR_USERNAME.github.io/msme-quotation-app)
+[👉 Open the App](https://banduguide21.github.io/msme-quotation-app/)
 
 Replace `YOUR_USERNAME` with your actual GitHub username.
 
@@ -123,31 +61,6 @@ Download all 3 files and host on any web server.
 ---
 
 Made with ❤️ for Indian MSMEs
-```
-
-4. **Commit changes**
-
----
-
-### Phase 3: Test Your App (5 minutes)
-
-1. Wait 1-2 minutes for GitHub Pages to deploy
-2. Go to: `https://YOUR_USERNAME.github.io/msme-quotation-app`
-3. You should see the purple header with "MSME Quotation App"
-
-#### Test Steps:
-1. Click **Create Quote**
-2. Enter:
-   - Customer Name: "Test Customer"
-   - Company: "Test Company"
-   - Click **+ Add Item/Service**
-   - Description: "Sample Item"
-   - Qty: 1
-   - Price: 1000
-3. Select GST: 18%
-4. Click **Generate Quote**
-5. ✅ Should open a preview modal
-6. Try "📄 Download PDF", "📱 Share WhatsApp", "📧 Email"
 
 ---
 
