@@ -1,948 +1,672 @@
-// QuoteFlow - MSME Quotation Management System
+// ===== MSME QUOTATION APP v3.0 - COMPLETE APPLICATION =====
+// Features: GST Optional, TDS, Analytics, Favorites, Recurring Items, Dark Mode, Status Tracking
 
-// In-memory data storage (replacing localStorage due to sandbox restrictions)
-let appData = {
-  quotes: [],
-  settings: {
-    companyName: 'Your Company Name',
-    gstin: '',
-    address: '',
-    email: '',
-    phone: '',
-    logoUrl: '',
-    defaultGST: 18,
-    defaultValidity: 30,
-    defaultPaymentTerms: 'Net 30 Days'
-  },
-  favorites: {
-    items: [],
-    customers: []
-  },
-  nextQuoteId: 1
-};
+let quotes = [];
+let favorites = { customers: [], items: [], paymentTerms: [] };
+let recurringItems = [];
+let appSettings = { companyName: '', gstin: '', logoUrl: '', paymentTerms: '' };
+let currentQuote = null;
 
-// Initialize app on load
+// ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
-  initializeApp();
-  setupEventListeners();
-  addInitialItem();
+    loadData();
+    setupTabNavigation();
+    setupQuoteForm();
+    setupQuotationsList();
+    setupRecurringItems();
+    setupSettings();
+    setupDarkMode();
+    initializeTaxCompliance();
+    updateAnalyticsDashboard();
+    renderQuotationsList();
+    updateFavoritesList();
+    renderRecurringItems();
+    setupKeyboardShortcuts();
 });
 
-function initializeApp() {
-  // Load settings into form
-  loadSettings();
-  
-  // Render initial views
-  renderQuotations();
-  renderAnalytics();
-  renderFavorites();
-  
-  showToast('Welcome to QuoteFlow!', 'success');
+// ===== TAB NAVIGATION =====
+function setupTabNavigation() {
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabName = this.getAttribute('data-tab');
+            
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            this.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'analytics') {
+                updateAnalyticsDashboard();
+            }
+        });
+    });
 }
 
-function setupEventListeners() {
-  // Navigation
-  document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-      switchTab(this.dataset.tab);
-    });
-  });
-
-  // Quote Form
-  document.getElementById('quoteForm').addEventListener('submit', handleQuoteSubmit);
-  document.getElementById('addItemBtn').addEventListener('click', addItemRow);
-  document.getElementById('clearFormBtn').addEventListener('click', clearQuoteForm);
-  document.getElementById('saveDraftBtn').addEventListener('click', saveDraft);
-  document.getElementById('loadTemplateBtn').addEventListener('click', showTemplateSelector);
-
-  // Calculations
-  document.getElementById('gstRate').addEventListener('change', calculateTotals);
-  document.getElementById('discountRate').addEventListener('input', calculateTotals);
-
-  // Templates
-  document.querySelectorAll('.template-card').forEach(card => {
-    card.querySelector('button').addEventListener('click', function() {
-      loadTemplate(card.dataset.template);
-    });
-  });
-
-  // Settings
-  document.getElementById('saveCompanyInfoBtn').addEventListener('click', saveCompanyInfo);
-  document.getElementById('saveDefaultsBtn').addEventListener('click', saveDefaults);
-  document.getElementById('exportDataBtn').addEventListener('click', exportData);
-  document.getElementById('importDataBtn').addEventListener('click', () => {
-    document.getElementById('importFileInput').click();
-  });
-  document.getElementById('importFileInput').addEventListener('change', importData);
-  document.getElementById('resetAppBtn').addEventListener('click', resetApp);
-
-  // Search and filters
-  document.getElementById('searchQuotes').addEventListener('input', filterQuotations);
-  document.getElementById('filterStatus').addEventListener('change', filterQuotations);
-  document.getElementById('sortBy').addEventListener('change', filterQuotations);
-
-  // Export all
-  document.getElementById('exportAllBtn').addEventListener('click', exportAllQuotes);
-
-  // Favorites
-  document.getElementById('addFavoriteItemBtn').addEventListener('click', addFavoriteItem);
-
-  // Modal close
-  document.querySelector('.modal-close').addEventListener('click', closeModal);
-  document.getElementById('quotePreviewModal').addEventListener('click', function(e) {
-    if (e.target === this) closeModal();
-  });
-
-  // Help button
-  document.getElementById('helpBtn').addEventListener('click', showHelp);
-}
-
-function switchTab(tabName) {
-  // Update active tab
-  document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-  // Update active content
-  document.querySelectorAll('.tab-content').forEach(content => {
-    content.classList.remove('active');
-  });
-  document.getElementById(`${tabName}Tab`).classList.add('active');
-
-  // Refresh data if needed
-  if (tabName === 'quotations') {
-    renderQuotations();
-  } else if (tabName === 'analytics') {
-    renderAnalytics();
-  } else if (tabName === 'favorites') {
-    renderFavorites();
-  }
+// ===== QUOTE FORM SETUP =====
+function setupQuoteForm() {
+    const addItemBtn = document.getElementById('addItemBtn');
+    addItemBtn.addEventListener('click', addItemRow);
+    addItemRow();
+    
+    const addToFavBtn = document.getElementById('addToFavoritesBtn');
+    addToFavBtn.addEventListener('click', saveCustomerToFavorites);
 }
 
 function addItemRow() {
-  const itemsList = document.getElementById('itemsList');
-  const itemCount = itemsList.children.length + 1;
-  
-  const itemRow = document.createElement('div');
-  itemRow.className = 'item-row';
-  itemRow.innerHTML = `
-    <div class="form-group">
-      <label>Description *</label>
-      <input type="text" class="item-description" required placeholder="Item or service description">
-    </div>
-    <div class="form-group">
-      <label>Quantity *</label>
-      <input type="number" class="item-quantity" min="1" value="1" required>
-    </div>
-    <div class="form-group">
-      <label>Unit Price (₹) *</label>
-      <input type="number" class="item-price" min="0" step="0.01" required>
-    </div>
-    <div class="form-group">
-      <label>Amount (₹)</label>
-      <input type="number" class="item-amount" readonly tabindex="-1">
-    </div>
-    <button type="button" class="btn-remove" aria-label="Remove item">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-  `;
-  
-  itemsList.appendChild(itemRow);
-  
-  // Add event listeners for calculations
-  const qtyInput = itemRow.querySelector('.item-quantity');
-  const priceInput = itemRow.querySelector('.item-price');
-  const removeBtn = itemRow.querySelector('.btn-remove');
-  
-  qtyInput.addEventListener('input', () => updateItemAmount(itemRow));
-  priceInput.addEventListener('input', () => updateItemAmount(itemRow));
-  removeBtn.addEventListener('click', () => {
-    itemRow.remove();
-    calculateTotals();
-  });
-}
-
-function addInitialItem() {
-  addItemRow();
-}
-
-function updateItemAmount(itemRow) {
-  const qty = parseFloat(itemRow.querySelector('.item-quantity').value) || 0;
-  const price = parseFloat(itemRow.querySelector('.item-price').value) || 0;
-  const amount = qty * price;
-  
-  itemRow.querySelector('.item-amount').value = amount.toFixed(2);
-  calculateTotals();
-}
-
-function calculateTotals() {
-  let subtotal = 0;
-  
-  document.querySelectorAll('.item-row').forEach(row => {
-    const amount = parseFloat(row.querySelector('.item-amount').value) || 0;
-    subtotal += amount;
-  });
-  
-  const discountRate = parseFloat(document.getElementById('discountRate').value) || 0;
-  const gstRate = parseFloat(document.getElementById('gstRate').value) || 0;
-  
-  const discountAmount = (subtotal * discountRate) / 100;
-  const taxableAmount = subtotal - discountAmount;
-  const gstAmount = (taxableAmount * gstRate) / 100;
-  const total = taxableAmount + gstAmount;
-  
-  document.getElementById('subtotalDisplay').textContent = `₹${subtotal.toFixed(2)}`;
-  document.getElementById('discountDisplay').textContent = `₹${discountAmount.toFixed(2)}`;
-  document.getElementById('gstDisplay').textContent = `₹${gstAmount.toFixed(2)}`;
-  document.getElementById('totalDisplay').textContent = `₹${total.toFixed(2)}`;
-}
-
-function handleQuoteSubmit(e) {
-  e.preventDefault();
-  
-  const items = [];
-  document.querySelectorAll('.item-row').forEach(row => {
-    items.push({
-      description: row.querySelector('.item-description').value,
-      quantity: parseFloat(row.querySelector('.item-quantity').value),
-      unitPrice: parseFloat(row.querySelector('.item-price').value),
-      amount: parseFloat(row.querySelector('.item-amount').value)
-    });
-  });
-  
-  if (items.length === 0) {
-    showToast('Please add at least one item', 'error');
-    return;
-  }
-  
-  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
-  const discountRate = parseFloat(document.getElementById('discountRate').value) || 0;
-  const gstRate = parseFloat(document.getElementById('gstRate').value) || 0;
-  const discountAmount = (subtotal * discountRate) / 100;
-  const taxableAmount = subtotal - discountAmount;
-  const gstAmount = (taxableAmount * gstRate) / 100;
-  const total = taxableAmount + gstAmount;
-  
-  const quote = {
-    id: `QT-${String(appData.nextQuoteId).padStart(4, '0')}`,
-    date: new Date().toISOString(),
-    customer: {
-      name: document.getElementById('customerName').value,
-      company: document.getElementById('companyName').value,
-      email: document.getElementById('customerEmail').value,
-      phone: document.getElementById('customerPhone').value,
-      gstin: document.getElementById('customerGSTIN').value,
-      address: document.getElementById('billingAddress').value
-    },
-    items: items,
-    subtotal: subtotal,
-    discountRate: discountRate,
-    discountAmount: discountAmount,
-    gstRate: gstRate,
-    gstAmount: gstAmount,
-    total: total,
-    validityDays: parseInt(document.getElementById('validityDays').value),
-    paymentTerms: document.getElementById('paymentTerms').value,
-    notes: document.getElementById('specialNotes').value,
-    status: 'draft'
-  };
-  
-  appData.quotes.push(quote);
-  appData.nextQuoteId++;
-  
-  // Save customer to favorites if not exists
-  if (quote.customer.name && !appData.favorites.customers.find(c => c.name === quote.customer.name)) {
-    appData.favorites.customers.push(quote.customer);
-  }
-  
-  showToast('Quotation created successfully!', 'success');
-  showQuotePreview(quote);
-  clearQuoteForm();
-  renderQuotations();
-  renderAnalytics();
-}
-
-function saveDraft() {
-  const customerName = document.getElementById('customerName').value;
-  if (!customerName) {
-    showToast('Please enter customer name to save draft', 'warning');
-    return;
-  }
-  
-  handleQuoteSubmit(new Event('submit'));
-  showToast('Draft saved successfully!', 'success');
-}
-
-function clearQuoteForm() {
-  document.getElementById('quoteForm').reset();
-  document.getElementById('itemsList').innerHTML = '';
-  addInitialItem();
-  calculateTotals();
-}
-
-function showQuotePreview(quote) {
-  const modal = document.getElementById('quotePreviewModal');
-  const content = document.getElementById('quotePreviewContent');
-  
-  const validUntil = new Date(quote.date);
-  validUntil.setDate(validUntil.getDate() + quote.validityDays);
-  
-  content.innerHTML = `
-    <div class="quote-preview">
-      <div class="preview-header">
-        <div class="preview-company">
-          ${appData.settings.logoUrl ? `<img src="${appData.settings.logoUrl}" alt="Company Logo" class="preview-logo">` : ''}
-          <h2>${appData.settings.companyName}</h2>
-          <p>${appData.settings.address}</p>
-          <p>${appData.settings.email} | ${appData.settings.phone}</p>
-          ${appData.settings.gstin ? `<p>GSTIN: ${appData.settings.gstin}</p>` : ''}
-        </div>
-        <div>
-          <h3>QUOTATION</h3>
-          <p><strong>${quote.id}</strong></p>
-          <p>${new Date(quote.date).toLocaleDateString()}</p>
-        </div>
-      </div>
-      
-      <div class="preview-info">
-        <div class="preview-section">
-          <h3>Bill To</h3>
-          <p><strong>${quote.customer.name}</strong></p>
-          ${quote.customer.company ? `<p>${quote.customer.company}</p>` : ''}
-          ${quote.customer.address ? `<p>${quote.customer.address}</p>` : ''}
-          ${quote.customer.email ? `<p>${quote.customer.email}</p>` : ''}
-          ${quote.customer.phone ? `<p>${quote.customer.phone}</p>` : ''}
-          ${quote.customer.gstin ? `<p>GSTIN: ${quote.customer.gstin}</p>` : ''}
-        </div>
-        <div class="preview-section">
-          <h3>Quote Details</h3>
-          <p><strong>Valid Until:</strong> ${validUntil.toLocaleDateString()}</p>
-          <p><strong>Payment Terms:</strong> ${quote.paymentTerms}</p>
-        </div>
-      </div>
-      
-      <table class="preview-table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Quantity</th>
-            <th>Unit Price</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${quote.items.map(item => `
-            <tr>
-              <td>${item.description}</td>
-              <td>${item.quantity}</td>
-              <td>₹${item.unitPrice.toFixed(2)}</td>
-              <td>₹${item.amount.toFixed(2)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      
-      <div class="preview-totals">
-        <div class="preview-total-row">
-          <span>Subtotal:</span>
-          <span>₹${quote.subtotal.toFixed(2)}</span>
-        </div>
-        ${quote.discountAmount > 0 ? `
-          <div class="preview-total-row">
-            <span>Discount (${quote.discountRate}%):</span>
-            <span>-₹${quote.discountAmount.toFixed(2)}</span>
-          </div>
-        ` : ''}
-        <div class="preview-total-row">
-          <span>GST (${quote.gstRate}%):</span>
-          <span>₹${quote.gstAmount.toFixed(2)}</span>
-        </div>
-        <div class="preview-total-row grand-total">
-          <span>Total Amount:</span>
-          <span>₹${quote.total.toFixed(2)}</span>
-        </div>
-      </div>
-      
-      ${quote.notes ? `
-        <div class="preview-notes">
-          <h3>Terms &amp; Conditions / Notes</h3>
-          <p>${quote.notes.replace(/\n/g, '<br>')}</p>
-        </div>
-      ` : ''}
-    </div>
-  `;
-  
-  modal.classList.add('active');
-  
-  // Setup modal buttons
-  document.getElementById('printQuoteBtn').onclick = () => window.print();
-  document.getElementById('emailQuoteBtn').onclick = () => emailQuote(quote);
-  document.getElementById('whatsappQuoteBtn').onclick = () => whatsappQuote(quote);
-}
-
-function closeModal() {
-  document.getElementById('quotePreviewModal').classList.remove('active');
-}
-
-function emailQuote(quote) {
-  const subject = `Quotation ${quote.id} from ${appData.settings.companyName}`;
-  const body = `Dear ${quote.customer.name},\n\nPlease find attached quotation ${quote.id} for your review.\n\nQuotation Summary:\nTotal Amount: ₹${quote.total.toFixed(2)}\nValid Until: ${new Date(new Date(quote.date).getTime() + quote.validityDays * 86400000).toLocaleDateString()}\n\nThank you for your business!\n\nBest regards,\n${appData.settings.companyName}`;
-  
-  window.open(`mailto:${quote.customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-}
-
-function whatsappQuote(quote) {
-  const message = `*Quotation ${quote.id}*\n\nDear ${quote.customer.name},\n\nThank you for your interest! Here's your quotation summary:\n\n💰 Total Amount: ₹${quote.total.toFixed(2)}\n📅 Valid Until: ${new Date(new Date(quote.date).getTime() + quote.validityDays * 86400000).toLocaleDateString()}\n\nFor detailed quotation, please contact us at ${appData.settings.email}\n\nThank you!\n${appData.settings.companyName}`;
-  
-  const phone = quote.customer.phone ? quote.customer.phone.replace(/[^0-9]/g, '') : '';
-  const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
-  
-  window.open(url, '_blank');
-}
-
-function renderQuotations() {
-  const container = document.getElementById('quotationsList');
-  
-  if (appData.quotes.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-        <h3>No quotations yet</h3>
-        <p>Create your first quotation to get started</p>
-      </div>
+    const container = document.getElementById('itemsContainer');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+        <input type="text" placeholder="Item/Service description" class="item-description" required>
+        <input type="number" placeholder="Qty" class="item-qty" value="1" min="1" required>
+        <input type="number" placeholder="Price" class="item-price" value="0" min="0" step="0.01" required>
+        <input type="number" placeholder="Amount" class="item-amount" readonly>
+        <button type="button" class="remove-item-btn" onclick="removeItemRow(this)">Remove</button>
     `;
-    return;
-  }
-  
-  const sortedQuotes = getSortedQuotes();
-  
-  container.innerHTML = sortedQuotes.map(quote => {
-    const validUntil = new Date(quote.date);
-    validUntil.setDate(validUntil.getDate() + quote.validityDays);
-    const isExpired = validUntil < new Date();
+    
+    row.querySelector('.item-qty').addEventListener('change', calculateItemAmount);
+    row.querySelector('.item-price').addEventListener('change', calculateItemAmount);
+    container.appendChild(row);
+}
+
+function removeItemRow(btn) {
+    btn.closest('.item-row').remove();
+}
+
+function calculateItemAmount(e) {
+    const row = e.target.closest('.item-row');
+    const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+    const price = parseFloat(row.querySelector('.item-price').value) || 0;
+    row.querySelector('.item-amount').value = (qty * price).toFixed(2);
+}
+
+function saveCustomerToFavorites() {
+    const name = document.getElementById('customerName').value;
+    const company = document.getElementById('companyName').value;
+    
+    if (!name) {
+        alert('⚠️ Please enter customer name first');
+        return;
+    }
+    
+    const customer = { name, company };
+    const existing = favorites.customers.find(c => c.name === name);
+    
+    if (!existing) {
+        favorites.customers.push(customer);
+        saveData();
+        updateFavoritesList();
+        alert('✅ Customer saved to favorites!');
+    } else {
+        alert('ℹ️ This customer is already in favorites');
+    }
+}
+
+// ===== DARK MODE =====
+function setupDarkMode() {
+    const toggle = document.getElementById('darkModeToggle');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    
+    if (savedTheme === 'dark') {
+        document.body.setAttribute('data-theme', 'dark');
+    }
+    
+    toggle.addEventListener('click', () => {
+        const currentTheme = document.body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
+}
+
+// ===== KEYBOARD SHORTCUTS =====
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            document.querySelector('[data-tab="create"]').click();
+            document.getElementById('quoteForm').reset();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+            e.preventDefault();
+            document.querySelector('[data-tab="list"]').click();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            document.getElementById('searchQuotes').focus();
+        }
+    });
+}
+
+// ===== INDIAN TAX COMPLIANCE - GST OPTIONAL & TDS =====
+function setupGSTOptional() {
+    const gstCheckbox = document.getElementById('gstApplicable');
+    const gstSection = document.getElementById('gstSection');
+    const gstRateSelect = document.getElementById('gstRate');
+    
+    gstCheckbox.addEventListener('change', function() {
+        gstSection.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    gstRateSelect.addEventListener('change', function() {
+        const customDiv = document.getElementById('customGstDiv');
+        customDiv.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
+}
+
+function setupTDS() {
+    const tdsCheckbox = document.getElementById('tdsApplicable');
+    const tdsSection = document.getElementById('tdsSection');
+    const tdsSectionSelect = document.getElementById('tdsSectionType');
+    const tdsAppliesTo = document.getElementById('tdsAppliesTo');
+    const tdsManualAmount = document.getElementById('tdsManualAmount');
+    
+    tdsCheckbox.addEventListener('change', function() {
+        tdsSection.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    const tdsRates = { '194c': 1, '194j': 10, '194o': 1, '194ad': 2, '194la': 1, '194lb': 2 };
+    
+    tdsSectionSelect.addEventListener('change', function() {
+        document.getElementById('tdsRate').value = tdsRates[this.value] || 0;
+    });
+    
+    tdsAppliesTo.addEventListener('change', function() {
+        tdsManualAmount.style.display = this.value === 'manual' ? 'block' : 'none';
+    });
+}
+
+function calculateTaxes() {
+    const subtotal = document.querySelectorAll('.item-row').reduce((sum, row) => {
+        return sum + (parseFloat(row.querySelector('.item-amount').value) || 0);
+    }, 0);
+    
+    const discountType = document.getElementById('discountType').value;
+    const discountValue = parseFloat(document.getElementById('discount').value) || 0;
+    const discountAmount = discountType === 'percentage' ? (subtotal * discountValue) / 100 : discountValue;
+    const amountAfterDiscount = subtotal - discountAmount;
+    
+    let gstAmount = 0, gstRate = 0;
+    if (document.getElementById('gstApplicable').checked) {
+        const selectedRate = document.getElementById('gstRate').value;
+        gstRate = selectedRate === 'custom' ? parseFloat(document.getElementById('customGstValue').value) || 0 : parseFloat(selectedRate);
+        gstAmount = (amountAfterDiscount * gstRate) / 100;
+    }
+    
+    let tdsAmount = 0, tdsRate = 0;
+    if (document.getElementById('tdsApplicable').checked) {
+        tdsRate = parseFloat(document.getElementById('tdsRate').value) || 0;
+        let tdsTaxableAmount = amountAfterDiscount;
+        const tdsAppliesTo = document.getElementById('tdsAppliesTo').value;
+        if (tdsAppliesTo === 'abovebasic') tdsTaxableAmount = Math.max(0, amountAfterDiscount - 30000);
+        else if (tdsAppliesTo === 'manual') tdsTaxableAmount = parseFloat(document.getElementById('tdsManualValue').value) || 0;
+        tdsAmount = (tdsTaxableAmount * tdsRate) / 100;
+    }
+    
+    return {
+        subtotal: subtotal.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
+        discountPct: discountValue,
+        amountAfterDiscount: amountAfterDiscount.toFixed(2),
+        gstRate, gstAmount: gstAmount.toFixed(2),
+        tdsRate, tdsAmount: tdsAmount.toFixed(2),
+        total: (amountAfterDiscount + gstAmount - tdsAmount).toFixed(2),
+        gstApplicable: document.getElementById('gstApplicable').checked,
+        tdsApplicable: document.getElementById('tdsApplicable').checked,
+        gstExemptionType: document.getElementById('gstExemptionType').value
+    };
+}
+
+function generateQuoteWithTaxCompliance(e) {
+    e.preventDefault();
+    
+    const items = [];
+    document.querySelectorAll('.item-row').forEach(row => {
+        const description = row.querySelector('.item-description').value;
+        const qty = parseFloat(row.querySelector('.item-qty').value) || 0;
+        const price = parseFloat(row.querySelector('.item-price').value) || 0;
+        const amount = qty * price;
+        if (description && amount > 0) items.push({ description, qty, price, amount });
+    });
+    
+    if (items.length === 0) {
+        alert('⚠️ Please add at least one item/service');
+        return;
+    }
+    
+    const taxes = calculateTaxes();
+    const quote = {
+        id: Date.now(),
+        date: new Date().toLocaleDateString('en-IN'),
+        customerName: document.getElementById('customerName').value,
+        companyName: document.getElementById('companyName').value,
+        customerEmail: document.getElementById('customerEmail').value,
+        customerGstin: document.getElementById('gstin').value,
+        yourCompanyName: document.getElementById('yourCompanyName').value || appSettings.companyName,
+        yourGstin: document.getElementById('yourGstinOptional').value || appSettings.gstin,
+        logoUrl: document.getElementById('logoUrl').value || appSettings.logoUrl,
+        items, ...taxes,
+        tdsSectionType: document.getElementById('tdsSectionType').value,
+        validity: document.getElementById('validity').value,
+        paymentTerms: document.getElementById('paymentTerms').value,
+        discountReason: document.getElementById('discountReason').value,
+        specialNotes: document.getElementById('specialNotes').value,
+        status: 'Draft'
+    };
+    
+    quotes.push(quote);
+    saveData();
+    currentQuote = quote;
+    showPreviewWithCompliance(quote);
+}
+
+function generateQuoteHTMLWithCompliance(quote) {
+    const validTill = new Date();
+    validTill.setDate(validTill.getDate() + parseInt(quote.validity));
+    
+    const itemsHTML = quote.items.map((item, idx) => `
+        <tr>
+            <td>${idx + 1}. ${item.description}</td>
+            <td style="text-align: center;">${item.qty}</td>
+            <td style="text-align: right;">₹${parseFloat(item.price).toFixed(2)}</td>
+            <td style="text-align: right;">₹${parseFloat(item.amount).toFixed(2)}</td>
+        </tr>
+    `).join('');
     
     return `
-      <div class="quote-card" data-quote-id="${quote.id}">
-        <div class="quote-header">
-          <div class="quote-id">${quote.id}</div>
-          <span class="quote-status status-${quote.status}">${quote.status.toUpperCase()}</span>
+        <div class="quote-preview">
+            ${quote.logoUrl ? `<img src="${quote.logoUrl}" alt="Logo" style="max-width: 100px; margin-bottom: 20px;" onerror="this.style.display='none'">` : ''}
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #667eea; padding-bottom: 15px; margin-bottom: 20px;">
+                <div><h3>${quote.yourCompanyName}</h3>
+                ${quote.yourGstin ? `<p>GSTIN: ${quote.yourGstin}</p>` : ''}</div>
+                <div style="text-align: right;"><p><b>Quote #${quote.id.toString().slice(-6)}</b></p>
+                <p>Date: ${quote.date}</p></div>
+            </div>
+            <h4>Bill To:</h4>
+            <p><b>${quote.customerName}</b></p>
+            ${quote.companyName ? `<p>${quote.companyName}</p>` : ''}
+            ${quote.customerGstin ? `<p>GSTIN: ${quote.customerGstin}</p>` : ''}
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead>
+                <tbody>${itemsHTML}</tbody>
+            </table>
+            <div class="tax-summary">
+                <h5>Tax Breakdown</h5>
+                <div class="tax-summary-row"><span>Subtotal</span><span style="color: #667eea; font-weight: 600;">₹${parseFloat(quote.subtotal).toFixed(2)}</span></div>
+                ${quote.discountAmount > 0 ? `<div class="tax-summary-row"><span>Discount (${quote.discountPct}%)</span><span style="color: #667eea;">-₹${parseFloat(quote.discountAmount).toFixed(2)}</span></div>` : ''}
+                <div class="tax-summary-row"><span>After Discount</span><span style="color: #667eea; font-weight: 600;">₹${parseFloat(quote.amountAfterDiscount).toFixed(2)}</span></div>
+                ${quote.gstApplicable ? `<div class="tax-summary-row"><span>GST (${quote.gstRate}%)</span><span style="color: #667eea;">₹${parseFloat(quote.gstAmount).toFixed(2)}</span></div>` : `<div class="tax-summary-row"><span>GST</span><span style="color: #2e7d32;">Not Applicable</span></div>`}
+                ${quote.tdsApplicable ? `<div class="tax-summary-row" style="background: #fff3cd; padding: 10px;"><span><b>TDS (${quote.tdsRate}%) - Deducted</b></span><span style="color: #ff9800;">-₹${parseFloat(quote.tdsAmount).toFixed(2)}</span></div>` : ''}
+                <div class="tax-summary-row"><span><b>TOTAL DUE</b></span><span style="color: #667eea; font-size: 1.2rem;">₹${parseFloat(quote.total).toFixed(2)}</span></div>
+            </div>
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 15px 0; color: #856404;">
+                <b>📋 Tax Info:</b> ${quote.gstApplicable ? `GST: ${quote.gstRate}% | ` : 'GST: Not Applicable | '}${quote.tdsApplicable ? `TDS: ${quote.tdsRate}% | ` : ''}Valid Till: ${validTill.toLocaleDateString('en-IN')}
+            </div>
+            ${quote.paymentTerms ? `<p><b>Payment Terms:</b> ${quote.paymentTerms}</p>` : ''}
+            ${quote.specialNotes ? `<p><b>Notes:</b> ${quote.specialNotes}</p>` : ''}
         </div>
-        <div class="quote-customer">${quote.customer.name}</div>
-        ${quote.customer.company ? `<div class="quote-company">${quote.customer.company}</div>` : ''}
-        <div class="quote-details">
-          <div class="quote-detail-row">
-            <span>Date:</span>
-            <span>${new Date(quote.date).toLocaleDateString()}</span>
-          </div>
-          <div class="quote-detail-row">
-            <span>Valid Until:</span>
-            <span style="color: ${isExpired ? 'var(--error)' : 'inherit'}">
-              ${validUntil.toLocaleDateString()} ${isExpired ? '(Expired)' : ''}
-            </span>
-          </div>
-          <div class="quote-detail-row">
-            <span>Items:</span>
-            <span>${quote.items.length}</span>
-          </div>
-          <div class="quote-detail-row">
-            <span><strong>Total:</strong></span>
-            <span class="quote-amount">₹${quote.total.toFixed(2)}</span>
-          </div>
-        </div>
-        <div class="quote-actions">
-          <button class="btn-icon" onclick="viewQuote('${quote.id}')" title="View">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
-          </button>
-          <button class="btn-icon" onclick="duplicateQuote('${quote.id}')" title="Duplicate">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-          </button>
-          <button class="btn-icon" onclick="updateQuoteStatus('${quote.id}')" title="Update Status">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 11 12 14 22 4"/>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-            </svg>
-          </button>
-          <button class="btn-icon" onclick="deleteQuote('${quote.id}')" title="Delete" style="color: var(--error);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-          </button>
-        </div>
-      </div>
     `;
-  }).join('');
 }
 
-function getSortedQuotes() {
-  const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
-  const statusFilter = document.getElementById('filterStatus').value;
-  const sortBy = document.getElementById('sortBy').value;
-  
-  let filtered = appData.quotes.filter(quote => {
-    const matchesSearch = quote.customer.name.toLowerCase().includes(searchTerm) ||
-                         (quote.customer.company && quote.customer.company.toLowerCase().includes(searchTerm)) ||
-                         quote.id.toLowerCase().includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-  
-  filtered.sort((a, b) => {
-    switch(sortBy) {
-      case 'date-desc':
-        return new Date(b.date) - new Date(a.date);
-      case 'date-asc':
-        return new Date(a.date) - new Date(b.date);
-      case 'amount-desc':
-        return b.total - a.total;
-      case 'amount-asc':
-        return a.total - b.total;
-      default:
-        return 0;
+function showPreviewWithCompliance(quote) {
+    const modal = document.getElementById('previewModal');
+    document.getElementById('previewContent').innerHTML = generateQuoteHTMLWithCompliance(quote);
+    modal.style.display = 'flex';
+    setupModalActions(quote);
+}
+
+// ===== FAVORITES =====
+function updateFavoritesList() {
+    const custList = document.getElementById('favoriteCustomers');
+    if (favorites.customers.length > 0) {
+        custList.innerHTML = favorites.customers.map(c => `
+            <div class="favorite-customer" onclick="loadFavoriteCustomer('${c.name}', '${c.company}')">
+                <b>${c.name}</b><p>${c.company || 'No company'}</p>
+            </div>
+        `).join('');
     }
-  });
-  
-  return filtered;
+}
+
+function loadFavoriteCustomer(name, company) {
+    document.getElementById('customerName').value = name;
+    document.getElementById('companyName').value = company;
+    document.querySelector('[data-tab="create"]').click();
+}
+
+// ===== RECURRING ITEMS =====
+function setupRecurringItems() {
+    document.getElementById('addRecurringItemBtn').addEventListener('click', () => {
+        document.getElementById('recurringItemsForm').style.display = 
+            document.getElementById('recurringItemsForm').style.display === 'none' ? 'block' : 'none';
+    });
+    
+    document.getElementById('saveRecurringBtn').addEventListener('click', () => {
+        const item = {
+            id: Date.now(),
+            description: document.getElementById('recurringDesc').value,
+            category: document.getElementById('recurringCategory').value,
+            qty: parseInt(document.getElementById('recurringQty').value),
+            price: parseFloat(document.getElementById('recurringPrice').value)
+        };
+        
+        if (item.description) {
+            recurringItems.push(item);
+            saveData();
+            renderRecurringItems();
+            document.getElementById('recurringItemsForm').style.display = 'none';
+            document.getElementById('recurringDesc').value = '';
+        }
+    });
+    
+    document.getElementById('cancelRecurringBtn').addEventListener('click', () => {
+        document.getElementById('recurringItemsForm').style.display = 'none';
+    });
+}
+
+function renderRecurringItems() {
+    const list = document.getElementById('recurringItemsList');
+    list.innerHTML = recurringItems.map(item => `
+        <div class="recurring-item">
+            <h5>${item.description}</h5>
+            <p><b>Category:</b> ${item.category}</p>
+            <p><b>Qty:</b> ${item.qty}</p>
+            <p><b>Price:</b> ₹${item.price.toFixed(2)}</p>
+            <div class="recurring-item-actions">
+                <button class="recurring-use-btn" onclick="addRecurringToQuote(${item.id})">Use</button>
+                <button class="recurring-remove-btn" onclick="removeRecurringItem(${item.id})">Remove</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addRecurringToQuote(id) {
+    const item = recurringItems.find(i => i.id === id);
+    if (!item) return;
+    
+    const itemsContainer = document.getElementById('itemsContainer');
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+        <input type="text" class="item-description" value="${item.description}">
+        <input type="number" class="item-qty" value="${item.qty}" min="1">
+        <input type="number" class="item-price" value="${item.price}" step="0.01">
+        <input type="number" class="item-amount" readonly value="${(item.qty * item.price).toFixed(2)}">
+        <button type="button" class="remove-item-btn" onclick="removeItemRow(this)">Remove</button>
+    `;
+    
+    row.querySelector('.item-qty').addEventListener('change', calculateItemAmount);
+    row.querySelector('.item-price').addEventListener('change', calculateItemAmount);
+    itemsContainer.appendChild(row);
+    alert('✅ Item added to quote!');
+}
+
+function removeRecurringItem(id) {
+    recurringItems = recurringItems.filter(i => i.id !== id);
+    saveData();
+    renderRecurringItems();
+}
+
+// ===== QUOTATIONS LIST =====
+function setupQuotationsList() {
+    document.getElementById('searchQuotes').addEventListener('input', filterQuotations);
+    document.getElementById('filterStatus').addEventListener('change', filterQuotations);
+    document.getElementById('clearAllBtn').addEventListener('click', function() {
+        if (confirm('Delete all quotations?')) {
+            quotes = [];
+            saveData();
+            renderQuotationsList();
+        }
+    });
 }
 
 function filterQuotations() {
-  renderQuotations();
+    const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+    
+    const filtered = quotes.filter(q => {
+        const matchesSearch = q.customerName.toLowerCase().includes(searchTerm) || 
+                            q.companyName.toLowerCase().includes(searchTerm);
+        const matchesStatus = !statusFilter || q.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+    
+    renderQuotationsList(filtered);
 }
 
-function viewQuote(quoteId) {
-  const quote = appData.quotes.find(q => q.id === quoteId);
-  if (quote) {
-    showQuotePreview(quote);
-  }
-}
-
-function duplicateQuote(quoteId) {
-  const quote = appData.quotes.find(q => q.id === quoteId);
-  if (!quote) return;
-  
-  // Populate form
-  document.getElementById('customerName').value = quote.customer.name;
-  document.getElementById('companyName').value = quote.customer.company || '';
-  document.getElementById('customerEmail').value = quote.customer.email || '';
-  document.getElementById('customerPhone').value = quote.customer.phone || '';
-  document.getElementById('customerGSTIN').value = quote.customer.gstin || '';
-  document.getElementById('billingAddress').value = quote.customer.address || '';
-  document.getElementById('gstRate').value = quote.gstRate;
-  document.getElementById('discountRate').value = quote.discountRate;
-  document.getElementById('validityDays').value = quote.validityDays;
-  document.getElementById('paymentTerms').value = quote.paymentTerms;
-  document.getElementById('specialNotes').value = quote.notes || '';
-  
-  // Clear and add items
-  document.getElementById('itemsList').innerHTML = '';
-  quote.items.forEach(item => {
-    addItemRow();
-    const lastRow = document.querySelector('.item-row:last-child');
-    lastRow.querySelector('.item-description').value = item.description;
-    lastRow.querySelector('.item-quantity').value = item.quantity;
-    lastRow.querySelector('.item-price').value = item.unitPrice;
-    updateItemAmount(lastRow);
-  });
-  
-  switchTab('create');
-  showToast('Quote duplicated! Modify and save as new.', 'success');
-}
-
-function updateQuoteStatus(quoteId) {
-  const quote = appData.quotes.find(q => q.id === quoteId);
-  if (!quote) return;
-  
-  const statuses = ['draft', 'sent', 'accepted', 'rejected'];
-  const currentIndex = statuses.indexOf(quote.status);
-  const nextIndex = (currentIndex + 1) % statuses.length;
-  quote.status = statuses[nextIndex];
-  
-  renderQuotations();
-  renderAnalytics();
-  showToast(`Status updated to ${quote.status}`, 'success');
-}
-
-function deleteQuote(quoteId) {
-  if (!confirm('Are you sure you want to delete this quotation?')) return;
-  
-  appData.quotes = appData.quotes.filter(q => q.id !== quoteId);
-  renderQuotations();
-  renderAnalytics();
-  showToast('Quotation deleted', 'success');
-}
-
-function renderAnalytics() {
-  const totalQuotes = appData.quotes.length;
-  const totalValue = appData.quotes.reduce((sum, q) => sum + q.total, 0);
-  const acceptedQuotes = appData.quotes.filter(q => q.status === 'accepted').length;
-  const conversionRate = totalQuotes > 0 ? (acceptedQuotes / totalQuotes * 100).toFixed(1) : 0;
-  
-  const now = new Date();
-  const activeQuotes = appData.quotes.filter(q => {
-    const validUntil = new Date(q.date);
-    validUntil.setDate(validUntil.getDate() + q.validityDays);
-    return validUntil >= now && q.status !== 'rejected';
-  }).length;
-  
-  document.getElementById('statTotalQuotes').textContent = totalQuotes;
-  document.getElementById('statTotalValue').textContent = `₹${totalValue.toLocaleString('en-IN', {maximumFractionDigits: 0})}`;
-  document.getElementById('statConversionRate').textContent = `${conversionRate}%`;
-  document.getElementById('statActiveQuotes').textContent = activeQuotes;
-  
-  // Recent activity
-  const recentActivity = document.getElementById('recentActivity');
-  const recent = appData.quotes.slice(-5).reverse();
-  
-  if (recent.length === 0) {
-    recentActivity.innerHTML = '<p class="empty-state">No recent activity</p>';
-  } else {
-    recentActivity.innerHTML = recent.map(quote => `
-      <div class="activity-item">
-        <div>
-          <strong>${quote.id}</strong> - ${quote.customer.name}
-          <br>
-          <small>${new Date(quote.date).toLocaleDateString()}</small>
-        </div>
-        <div>
-          <span class="quote-status status-${quote.status}">${quote.status.toUpperCase()}</span>
-          <br>
-          <strong>₹${quote.total.toFixed(2)}</strong>
-        </div>
-      </div>
-    `).join('');
-  }
-}
-
-function renderFavorites() {
-  // Render favorite items
-  const itemsList = document.getElementById('favoriteItemsList');
-  if (appData.favorites.items.length === 0) {
-    itemsList.innerHTML = '<p class="empty-state">No saved items yet</p>';
-  } else {
-    itemsList.innerHTML = appData.favorites.items.map((item, index) => `
-      <div class="favorite-item">
-        <div>
-          <strong>${item.description}</strong><br>
-          <small>₹${item.price} per ${item.unit || 'unit'}</small>
-        </div>
-        <button class="btn-icon" onclick="removeFavoriteItem(${index})" title="Remove">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-    `).join('');
-  }
-  
-  // Render favorite customers
-  const customersList = document.getElementById('favoriteCustomersList');
-  if (appData.favorites.customers.length === 0) {
-    customersList.innerHTML = '<p class="empty-state">No saved customers yet</p>';
-  } else {
-    customersList.innerHTML = appData.favorites.customers.map((customer, index) => `
-      <div class="favorite-item">
-        <div>
-          <strong>${customer.name}</strong><br>
-          <small>${customer.company || customer.email || ''}</small>
-        </div>
-        <button class="btn-icon" onclick="loadCustomer(${index})" title="Load">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </button>
-      </div>
-    `).join('');
-  }
-}
-
-function addFavoriteItem() {
-  const description = prompt('Item Description:');
-  if (!description) return;
-  
-  const price = prompt('Unit Price (₹):');
-  if (!price) return;
-  
-  const unit = prompt('Unit (e.g., pcs, hrs, kg):') || 'unit';
-  
-  appData.favorites.items.push({
-    description,
-    price: parseFloat(price),
-    unit
-  });
-  
-  renderFavorites();
-  showToast('Item added to favorites', 'success');
-}
-
-function removeFavoriteItem(index) {
-  appData.favorites.items.splice(index, 1);
-  renderFavorites();
-}
-
-function loadCustomer(index) {
-  const customer = appData.favorites.customers[index];
-  document.getElementById('customerName').value = customer.name || '';
-  document.getElementById('companyName').value = customer.company || '';
-  document.getElementById('customerEmail').value = customer.email || '';
-  document.getElementById('customerPhone').value = customer.phone || '';
-  document.getElementById('customerGSTIN').value = customer.gstin || '';
-  document.getElementById('billingAddress').value = customer.address || '';
-  
-  switchTab('create');
-  showToast('Customer details loaded', 'success');
-}
-
-function loadTemplate(templateType) {
-  clearQuoteForm();
-  
-  const templates = {
-    product: {
-      items: [
-        { desc: 'Product Name - Model/SKU', qty: 1, price: 0 },
-        { desc: 'Installation Charges', qty: 1, price: 0 }
-      ],
-      payment: '50% Advance, 50% on Delivery',
-      notes: 'Warranty: 1 Year\nDelivery: 7-10 business days\nFree installation included'
-    },
-    service: {
-      items: [
-        { desc: 'Service Description - Hours/Days', qty: 1, price: 0 },
-        { desc: 'Additional Support', qty: 1, price: 0 }
-      ],
-      payment: 'Net 15 Days',
-      notes: 'Service will be provided at client location\nAll tools and materials included\nSupport available during business hours'
-    },
-    project: {
-      items: [
-        { desc: 'Phase 1: Planning and Design', qty: 1, price: 0 },
-        { desc: 'Phase 2: Development', qty: 1, price: 0 },
-        { desc: 'Phase 3: Testing and Deployment', qty: 1, price: 0 }
-      ],
-      payment: '30% on signing, 40% on Phase 2, 30% on completion',
-      notes: 'Project duration: 3 months\nWeekly progress updates\nDedicated project manager assigned'
-    },
-    amc: {
-      items: [
-        { desc: 'Annual Maintenance Contract - 12 Months', qty: 1, price: 0 },
-        { desc: 'Quarterly Preventive Maintenance', qty: 4, price: 0 }
-      ],
-      payment: 'Annual payment or Quarterly installments',
-      notes: 'Contract Duration: 12 Months\n24/7 Support hotline\nFree parts replacement\nPriority service'
+function renderQuotationsList(filteredQuotes = quotes) {
+    const container = document.getElementById('quotationsList');
+    const emptyMessage = document.getElementById('emptyMessage');
+    
+    if (filteredQuotes.length === 0) {
+        container.innerHTML = '';
+        emptyMessage.style.display = 'block';
+        return;
     }
-  };
-  
-  const template = templates[templateType];
-  if (!template) return;
-  
-  // Add items
-  template.items.forEach(item => {
-    addItemRow();
-    const lastRow = document.querySelector('.item-row:last-child');
-    lastRow.querySelector('.item-description').value = item.desc;
-    lastRow.querySelector('.item-quantity').value = item.qty;
-    lastRow.querySelector('.item-price').value = item.price;
-    updateItemAmount(lastRow);
-  });
-  
-  document.getElementById('paymentTerms').value = template.payment;
-  document.getElementById('specialNotes').value = template.notes;
-  
-  switchTab('create');
-  showToast(`${templateType.toUpperCase()} template loaded`, 'success');
+    
+    emptyMessage.style.display = 'none';
+    container.innerHTML = filteredQuotes.map(q => `
+        <div class="quotation-card">
+            <h4>${q.customerName}</h4>
+            <p><b>Company:</b> ${q.companyName || 'N/A'}</p>
+            <p><b>Amount:</b> ₹${parseFloat(q.total).toFixed(2)}</p>
+            <p><b>Date:</b> ${q.date}</p>
+            <p><b>Status:</b> ${q.status || 'Draft'}</p>
+            <div class="actions">
+                <button onclick="viewQuotation(${q.id})">👁️ View</button>
+                <button onclick="duplicateQuotation(${q.id})">📋 Duplicate</button>
+                <button class="delete-btn" onclick="deleteQuotation(${q.id})">🗑️ Delete</button>
+            </div>
+        </div>
+    `).join('');
 }
 
-function showTemplateSelector() {
-  switchTab('templates');
+function viewQuotation(id) {
+    const quote = quotes.find(q => q.id === id);
+    if (quote) showPreviewWithCompliance(quote);
 }
 
-function loadSettings() {
-  document.getElementById('settingsCompanyName').value = appData.settings.companyName;
-  document.getElementById('settingsGSTIN').value = appData.settings.gstin;
-  document.getElementById('settingsAddress').value = appData.settings.address;
-  document.getElementById('settingsEmail').value = appData.settings.email;
-  document.getElementById('settingsPhone').value = appData.settings.phone;
-  document.getElementById('settingsLogoUrl').value = appData.settings.logoUrl;
-  document.getElementById('settingsDefaultGST').value = appData.settings.defaultGST;
-  document.getElementById('settingsDefaultValidity').value = appData.settings.defaultValidity;
-  document.getElementById('settingsDefaultPaymentTerms').value = appData.settings.defaultPaymentTerms;
+function duplicateQuotation(id) {
+    const original = quotes.find(q => q.id === id);
+    if (!original) return;
+    
+    const newQuote = JSON.parse(JSON.stringify(original));
+    newQuote.id = Date.now();
+    newQuote.date = new Date().toLocaleDateString('en-IN');
+    newQuote.status = 'Draft';
+    
+    quotes.push(newQuote);
+    saveData();
+    renderQuotationsList();
+    alert('✅ Quotation duplicated!');
 }
 
-function saveCompanyInfo() {
-  appData.settings.companyName = document.getElementById('settingsCompanyName').value;
-  appData.settings.gstin = document.getElementById('settingsGSTIN').value;
-  appData.settings.address = document.getElementById('settingsAddress').value;
-  appData.settings.email = document.getElementById('settingsEmail').value;
-  appData.settings.phone = document.getElementById('settingsPhone').value;
-  appData.settings.logoUrl = document.getElementById('settingsLogoUrl').value;
-  
-  showToast('Company information saved', 'success');
+function deleteQuotation(id) {
+    if (confirm('Delete this quotation?')) {
+        quotes = quotes.filter(q => q.id !== id);
+        saveData();
+        renderQuotationsList();
+    }
 }
 
-function saveDefaults() {
-  appData.settings.defaultGST = parseInt(document.getElementById('settingsDefaultGST').value);
-  appData.settings.defaultValidity = parseInt(document.getElementById('settingsDefaultValidity').value);
-  appData.settings.defaultPaymentTerms = document.getElementById('settingsDefaultPaymentTerms').value;
-  
-  // Apply to current form if empty
-  if (!document.getElementById('gstRate').value) {
-    document.getElementById('gstRate').value = appData.settings.defaultGST;
-  }
-  if (!document.getElementById('validityDays').value) {
-    document.getElementById('validityDays').value = appData.settings.defaultValidity;
-  }
-  
-  showToast('Default settings saved', 'success');
+// ===== ANALYTICS =====
+function updateAnalyticsDashboard() {
+    const stats = {
+        totalQuotes: quotes.length,
+        totalValue: quotes.reduce((sum, q) => sum + parseFloat(q.total), 0),
+        acceptedQuotes: quotes.filter(q => q.status === 'Accepted' || q.status === 'Converted').length,
+        activeQuotes: quotes.filter(q => {
+            const validTill = new Date();
+            validTill.setDate(validTill.getDate() + parseInt(q.validity));
+            return validTill > new Date();
+        }).length
+    };
+    
+    stats.conversionRate = stats.totalQuotes > 0 ? ((stats.acceptedQuotes / stats.totalQuotes) * 100).toFixed(1) : 0;
+    
+    document.getElementById('totalQuotes').textContent = stats.totalQuotes;
+    document.getElementById('totalValue').textContent = '₹' + stats.totalValue.toFixed(2);
+    document.getElementById('conversionRate').textContent = stats.conversionRate + '%';
+    document.getElementById('activeQuotes').textContent = stats.activeQuotes;
+    
+    const topCustomers = {};
+    quotes.forEach(q => {
+        topCustomers[q.customerName] = (topCustomers[q.customerName] || 0) + 1;
+    });
+    
+    const sortedCustomers = Object.entries(topCustomers).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    document.getElementById('topCustomers').innerHTML = sortedCustomers.map(([name, count]) => 
+        `<div class="customer-item"><b>${name}</b><p>${count} quotations</p></div>`
+    ).join('');
+    
+    const recent = quotes.slice(-5).reverse();
+    document.getElementById('recentQuotes').innerHTML = recent.map(q => 
+        `<div class="recent-item"><b>${q.customerName}</b><p>₹${parseFloat(q.total).toFixed(2)} • ${q.date}</p></div>`
+    ).join('');
+}
+
+// ===== SETTINGS =====
+function setupSettings() {
+    document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+    document.getElementById('exportDataBtn').addEventListener('click', exportData);
+    document.getElementById('importDataBtn').addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+    });
+    document.getElementById('fileInput').addEventListener('change', importData);
+    document.getElementById('resetAppBtn').addEventListener('click', resetApp);
+}
+
+function saveSettings() {
+    appSettings.companyName = document.getElementById('settingsCompanyName').value;
+    appSettings.gstin = document.getElementById('settingsGstin').value;
+    appSettings.logoUrl = document.getElementById('settingsLogoUrl').value;
+    appSettings.paymentTerms = document.getElementById('settingsPaymentTerms').value;
+    
+    saveData();
+    showMessage('✅ Settings saved!', 'success');
 }
 
 function exportData() {
-  const dataStr = JSON.stringify(appData, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `quoteflow-backup-${new Date().toISOString().split('T')[0]}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  
-  showToast('Data exported successfully', 'success');
+    const data = { quotes, favorites, recurringItems, appSettings, exportDate: new Date().toLocaleString('en-IN') };
+    const dataStr = JSON.stringify(data, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `quotations_backup_${new Date().toISOString().slice(0,10)}.json`;
+    link.click();
+    showMessage('✅ Data exported!', 'success');
 }
 
-function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const imported = JSON.parse(e.target.result);
-      if (confirm('This will replace all existing data. Continue?')) {
-        appData = imported;
-        renderQuotations();
-        renderAnalytics();
-        renderFavorites();
-        loadSettings();
-        showToast('Data imported successfully', 'success');
-      }
-    } catch (error) {
-      showToast('Invalid data file', 'error');
-    }
-  };
-  reader.readAsText(file);
-  
-  event.target.value = '';
-}
-
-function exportAllQuotes() {
-  if (appData.quotes.length === 0) {
-    showToast('No quotations to export', 'warning');
-    return;
-  }
-  
-  const csv = generateCSV();
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `quotations-${new Date().toISOString().split('T')[0]}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-  
-  showToast('Quotations exported to CSV', 'success');
-}
-
-function generateCSV() {
-  const headers = ['Quote ID', 'Date', 'Customer', 'Company', 'Email', 'Total', 'Status'];
-  const rows = appData.quotes.map(q => [
-    q.id,
-    new Date(q.date).toLocaleDateString(),
-    q.customer.name,
-    q.customer.company || '',
-    q.customer.email || '',
-    q.total.toFixed(2),
-    q.status
-  ]);
-  
-  return [headers, ...rows].map(row => row.join(',')).join('\n');
+function importData(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const data = JSON.parse(event.target.result);
+            quotes = data.quotes || [];
+            favorites = data.favorites || { customers: [], items: [], paymentTerms: [] };
+            recurringItems = data.recurringItems || [];
+            appSettings = data.appSettings || {};
+            saveData();
+            renderQuotationsList();
+            updateAnalyticsDashboard();
+            updateFavoritesList();
+            renderRecurringItems();
+            showMessage('✅ Data imported!', 'success');
+        } catch (error) {
+            showMessage('❌ Invalid file!', 'error');
+        }
+    };
+    reader.readAsText(file);
 }
 
 function resetApp() {
-  if (!confirm('This will delete ALL data including quotations, settings, and favorites. This action cannot be undone. Continue?')) {
-    return;
-  }
-  
-  if (!confirm('Are you absolutely sure? This is your last chance to cancel.')) {
-    return;
-  }
-  
-  appData = {
-    quotes: [],
-    settings: {
-      companyName: 'Your Company Name',
-      gstin: '',
-      address: '',
-      email: '',
-      phone: '',
-      logoUrl: '',
-      defaultGST: 18,
-      defaultValidity: 30,
-      defaultPaymentTerms: 'Net 30 Days'
-    },
-    favorites: {
-      items: [],
-      customers: []
-    },
-    nextQuoteId: 1
-  };
-  
-  clearQuoteForm();
-  renderQuotations();
-  renderAnalytics();
-  renderFavorites();
-  loadSettings();
-  
-  showToast('All data has been reset', 'success');
+    if (confirm('⚠️ Delete everything?')) {
+        quotes = [];
+        favorites = { customers: [], items: [], paymentTerms: [] };
+        recurringItems = [];
+        appSettings = {};
+        localStorage.clear();
+        location.reload();
+    }
 }
 
-function showToast(message, type = 'info') {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  
-  container.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.animation = 'slideIn 0.3s ease reverse';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+// ===== MODAL ACTIONS =====
+function setupModalActions(quote) {
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+        document.getElementById('previewModal').style.display = 'none';
+    });
+    
+    document.querySelector('.close-modal').addEventListener('click', () => {
+        document.getElementById('previewModal').style.display = 'none';
+    });
+    
+    document.getElementById('downloadPdfBtn').addEventListener('click', () => { window.print(); });
+    
+    document.getElementById('shareWhatsappBtn').addEventListener('click', () => {
+        const message = `Hello ${quote.customerName},\n\nQuotation:\nQuote #: ${quote.id.toString().slice(-6)}\nTotal: ₹${parseFloat(quote.total).toFixed(2)}\nValid till: ${new Date(Date.now() + parseInt(quote.validity) * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN')}\n\nThanks!`;
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    });
+    
+    document.getElementById('shareEmailBtn').addEventListener('click', () => {
+        const subject = `Quotation for ${quote.customerName}`;
+        const body = `Hello ${quote.customerName},\n\nQuotation #${quote.id.toString().slice(-6)}\nTotal: ₹${parseFloat(quote.total).toFixed(2)}\nValid till: ${new Date(Date.now() + parseInt(quote.validity) * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN')}\n\nRegards,\n${quote.yourCompanyName}`;
+        window.open(`mailto:${quote.customerEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+    });
+    
+    document.getElementById('printQuoteBtn').addEventListener('click', () => { window.print(); });
 }
 
-function showHelp() {
-  const helpText = `QuoteFlow - Quick Help\n\n` +
-    `1. Create Quote: Fill in customer details and add items to generate quotations\n` +
-    `2. Templates: Use pre-built templates for common quote types\n` +
-    `3. My Quotations: View, search, and manage all quotations\n` +
-    `4. Analytics: Track conversion rates and business metrics\n` +
-    `5. Favorites: Save frequently used items and customers\n` +
-    `6. Settings: Configure company details and defaults\n\n` +
-    `Share quotations via WhatsApp, Email, or Print to PDF\n` +
-    `All data is stored locally in your browser.`;
-  
-  alert(helpText);
+// ===== TAX COMPLIANCE INITIALIZATION =====
+function initializeTaxCompliance() {
+    setupGSTOptional();
+    setupTDS();
+    document.getElementById('quoteForm').addEventListener('submit', generateQuoteWithTaxCompliance);
 }
+
+// ===== DATA PERSISTENCE =====
+function saveData() {
+    localStorage.setItem('msmeQuotes', JSON.stringify(quotes));
+    localStorage.setItem('favorites', JSON.stringify(favorites));
+    localStorage.setItem('recurringItems', JSON.stringify(recurringItems));
+    localStorage.setItem('appSettings', JSON.stringify(appSettings));
+}
+
+function loadData() {
+    const saved = localStorage.getItem('msmeQuotes');
+    if (saved) try { quotes = JSON.parse(saved); } catch (e) { quotes = []; }
+    
+    const favSaved = localStorage.getItem('favorites');
+    if (favSaved) try { favorites = JSON.parse(favSaved); } catch (e) { favorites = { customers: [], items: [], paymentTerms: [] }; }
+    
+    const recurSaved = localStorage.getItem('recurringItems');
+    if (recurSaved) try { recurringItems = JSON.parse(recurSaved); } catch (e) { recurringItems = []; }
+    
+    const settingsSaved = localStorage.getItem('appSettings');
+    if (settingsSaved) {
+        try {
+            appSettings = JSON.parse(settingsSaved);
+            document.getElementById('settingsCompanyName').value = appSettings.companyName || '';
+            document.getElementById('settingsGstin').value = appSettings.gstin || '';
+            document.getElementById('settingsLogoUrl').value = appSettings.logoUrl || '';
+            document.getElementById('settingsPaymentTerms').value = appSettings.paymentTerms || '';
+        } catch (e) { appSettings = {}; }
+    }
+}
+
+// ===== HELPER FUNCTIONS =====
+function showMessage(text, type) {
+    const msg = document.getElementById('settingsMessage');
+    msg.textContent = text;
+    msg.className = `message ${type}`;
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
+// ===== END OF CODE =====
