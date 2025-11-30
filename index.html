@@ -3,25 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MSME Quotation App - GST Optional & TDS Compliant</title>
+    <title>MSME Quotation App v3.0 - GST Optional & TDS Compliant</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <h1>💼 MSME Quotation App</h1>
-            <p class="subtitle">Professional quotations in 60 seconds | GST Optional | TDS Compliant</p>
+            <div class="header-top">
+                <h1>💼 MSME Quotation App</h1>
+                <button id="darkModeToggle" class="dark-mode-btn" title="Toggle Dark Mode">🌙</button>
+            </div>
+            <p class="subtitle">Professional quotations in 60 seconds | GST Optional | TDS Compliant | Analytics</p>
         </header>
 
         <!-- Tab Navigation -->
         <div class="tabs">
-            <button class="tab-btn active" data-tab="create">Create Quote</button>
-            <button class="tab-btn" data-tab="list">My Quotations</button>
+            <button class="tab-btn active" data-tab="create">✏️ Create Quote</button>
+            <button class="tab-btn" data-tab="list">📋 My Quotations</button>
+            <button class="tab-btn" data-tab="favorites">⭐ Favorites</button>
+            <button class="tab-btn" data-tab="recurring">🔁 Recurring Items</button>
             <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
-            <button class="tab-btn" data-tab="templates">Templates</button>
             <button class="tab-btn" data-tab="complianceNotes">📋 Tax Compliance</button>
-            <button class="tab-btn" data-tab="settings">Settings</button>
+            <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
         </div>
 
         <!-- Create Quote Tab -->
@@ -29,7 +33,7 @@
             <form id="quoteForm" class="form-grid">
                 <!-- Customer Section -->
                 <fieldset class="form-section">
-                    <legend>Customer Details</legend>
+                    <legend>👥 Customer Details</legend>
                     
                     <label>Customer Name *</label>
                     <input type="text" id="customerName" placeholder="Enter customer name" required>
@@ -42,11 +46,15 @@
                     
                     <label>Customer GSTIN (optional)</label>
                     <input type="text" id="gstin" placeholder="18-digit GSTIN (optional)">
+                    
+                    <button type="button" id="addToFavoritesBtn" class="btn-secondary" style="margin-top: 10px;">
+                        ⭐ Save to Favorites
+                    </button>
                 </fieldset>
 
                 <!-- Quote Items Section -->
                 <fieldset class="form-section">
-                    <legend>Quote Items (Add Line Items)</legend>
+                    <legend>📦 Quote Items (Add Line Items)</legend>
                     <div id="itemsContainer"></div>
                     <button type="button" id="addItemBtn" class="btn-secondary">+ Add Item/Service</button>
                 </fieldset>
@@ -142,7 +150,7 @@
                         <h5>Discount</h5>
                         
                         <label>Discount Type</label>
-                        <select id="discountType" onchange="updateDiscountUI()">
+                        <select id="discountType">
                             <option value="percentage">Percentage (%)</option>
                             <option value="fixed">Fixed Amount (₹)</option>
                         </select>
@@ -168,7 +176,7 @@
 
                 <!-- Company & Notes Section -->
                 <fieldset class="form-section">
-                    <legend>Your Company & Notes</legend>
+                    <legend>🏢 Your Company & Notes</legend>
                     
                     <label>Your Company Name *</label>
                     <input type="text" id="yourCompanyName" placeholder="Your business name" required>
@@ -195,12 +203,74 @@
         <div id="list" class="tab-content">
             <div class="list-controls">
                 <input type="text" id="searchQuotes" placeholder="Search quotations..." class="search-box">
+                <select id="filterStatus" class="search-box">
+                    <option value="">All Status</option>
+                    <option value="Draft">Draft</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Accepted">Accepted</option>
+                    <option value="Converted">Converted</option>
+                </select>
                 <button id="clearAllBtn" class="btn-danger">Delete All</button>
             </div>
             <div id="quotationsList" class="quotations-grid"></div>
             <p id="emptyMessage" style="text-align: center; color: #666; margin-top: 20px;">
                 No quotations yet. Create one to get started!
             </p>
+        </div>
+
+        <!-- Favorites Tab -->
+        <div id="favorites" class="tab-content">
+            <h3>⭐ Saved Favorites</h3>
+            
+            <div class="favorites-section">
+                <h4>👥 Saved Customers</h4>
+                <div id="favoriteCustomers" class="favorites-grid"></div>
+                <p id="noFavCustomers" style="color: #999;">No saved customers yet. Use "Save to Favorites" while creating quotes.</p>
+            </div>
+            
+            <div class="favorites-section">
+                <h4>📦 Saved Items/Services</h4>
+                <div id="favoriteItems" class="favorites-grid"></div>
+                <p id="noFavItems" style="color: #999;">No saved items yet. Add items to favorites while creating quotes.</p>
+            </div>
+            
+            <div class="favorites-section">
+                <h4>💬 Saved Payment Terms</h4>
+                <div id="favoriteTerms" class="favorites-list"></div>
+                <p id="noFavTerms" style="color: #999;">No saved payment terms yet.</p>
+            </div>
+        </div>
+
+        <!-- Recurring Items Tab -->
+        <div id="recurring" class="tab-content">
+            <h3>🔁 Recurring Items Library</h3>
+            <button id="addRecurringItemBtn" class="btn-primary">+ Add Recurring Item</button>
+            
+            <div id="recurringItemsForm" style="display:none; margin-top: 20px; background: #f9f9f9; padding: 20px; border-radius: 8px;">
+                <h4>Add New Recurring Item</h4>
+                <label>Item Description *</label>
+                <input type="text" id="recurringDesc" placeholder="e.g., Consulting Services (8h @ ₹1000/hr)">
+                
+                <label>Category</label>
+                <select id="recurringCategory">
+                    <option value="Products">Products</option>
+                    <option value="Services">Services</option>
+                    <option value="Other">Other</option>
+                </select>
+                
+                <label>Default Quantity</label>
+                <input type="number" id="recurringQty" value="1" min="1">
+                
+                <label>Default Unit Price</label>
+                <input type="number" id="recurringPrice" value="0" step="0.01" min="0">
+                
+                <div style="margin-top: 15px;">
+                    <button id="saveRecurringBtn" class="btn-primary">Save Item</button>
+                    <button id="cancelRecurringBtn" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+            
+            <div id="recurringItemsList" class="recurring-grid" style="margin-top: 20px;"></div>
         </div>
 
         <!-- Analytics Tab -->
@@ -238,33 +308,6 @@
             <div class="analytics-section">
                 <h4>⏳ Expiring Soon (Next 7 Days)</h4>
                 <div id="expiringQuotes" class="expiring-list"></div>
-            </div>
-        </div>
-
-        <!-- Templates Tab -->
-        <div id="templates" class="tab-content">
-            <h3>Quote Templates</h3>
-            <div class="templates-grid">
-                <div class="template-card" data-template="product">
-                    <h4>📦 Product Quote</h4>
-                    <p>For selling physical products with SKUs and quantities.</p>
-                    <button class="btn-secondary" onclick="loadTemplate('product')">Use Template</button>
-                </div>
-                <div class="template-card" data-template="service">
-                    <h4>🛠️ Service Quote</h4>
-                    <p>For hourly/project-based services and consultations.</p>
-                    <button class="btn-secondary" onclick="loadTemplate('service')">Use Template</button>
-                </div>
-                <div class="template-card" data-template="project">
-                    <h4>🏗️ Project Estimate</h4>
-                    <p>For construction, development, or multi-phase projects.</p>
-                    <button class="btn-secondary" onclick="loadTemplate('project')">Use Template</button>
-                </div>
-                <div class="template-card" data-template="amc">
-                    <h4>🔧 AMC / Maintenance</h4>
-                    <p>For annual maintenance contracts with recurring schedules.</p>
-                    <button class="btn-secondary" onclick="loadTemplate('amc')">Use Template</button>
-                </div>
             </div>
         </div>
 
@@ -355,8 +398,8 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>💡 MSME Quotation App v3.0 | GST Optional | TDS Compliant | Free Tool for Indian MSMEs</p>
-        <p><small>Built with ❤️ for small business owners | Data stored locally in your browser</small></p>
+        <p>💡 MSME Quotation App v3.0 | GST Optional | TDS Compliant | Analytics | Favorites</p>
+        <p><small>Built with ❤️ for small business owners | All data stored locally in your browser | 100% Free</small></p>
     </footer>
 
     <script src="app.js"></script>
