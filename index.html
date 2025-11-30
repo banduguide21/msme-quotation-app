@@ -14,18 +14,105 @@
                 <h1>💼 MSME Quotation App</h1>
                 <button id="darkModeToggle" class="dark-mode-btn" title="Toggle Dark Mode">🌙</button>
             </div>
-            <p class="subtitle">Professional quotations in 60 seconds | GST Optional | TDS Compliant | Analytics</p>
+            <p class="subtitle">Professional quotations in 60 seconds | GST Optional | TDS Compliant | Templates</p>
         </header>
 
         <!-- Tab Navigation -->
         <div class="tabs">
             <button class="tab-btn active" data-tab="create">✏️ Create Quote</button>
-            <button class="tab-btn" data-tab="list">📋 My Quotations</button>
+            <button class="tab-btn" data-tab="templates">📋 Templates</button>
+            <button class="tab-btn" data-tab="list">📊 My Quotations</button>
             <button class="tab-btn" data-tab="favorites">⭐ Favorites</button>
             <button class="tab-btn" data-tab="recurring">🔁 Recurring Items</button>
-            <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+            <button class="tab-btn" data-tab="analytics">📈 Analytics</button>
             <button class="tab-btn" data-tab="complianceNotes">📋 Tax Compliance</button>
             <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+        </div>
+
+        <!-- Templates Tab (NEW - BEFORE CREATE QUOTE) -->
+        <div id="templates" class="tab-content">
+            <h3>📋 Quote Templates</h3>
+            <p style="color: #666; margin-bottom: 20px;">Choose a template to get started quickly. Templates are pre-configured with common items for your business type.</p>
+            
+            <div class="templates-grid">
+                <!-- Product Quote Template -->
+                <div class="template-card">
+                    <div class="template-icon">📦</div>
+                    <h4>Product Quote</h4>
+                    <p>For selling physical products with SKUs and quantities.</p>
+                    <div class="template-details">
+                        <small>✓ Item SKU tracking</small><br>
+                        <small>✓ Bulk pricing</small><br>
+                        <small>✓ Inventory management</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('product')">Use Template</button>
+                </div>
+
+                <!-- Service Quote Template -->
+                <div class="template-card">
+                    <div class="template-icon">🛠️</div>
+                    <h4>Service Quote</h4>
+                    <p>For hourly/project-based services and consultations.</p>
+                    <div class="template-details">
+                        <small>✓ Hourly rates</small><br>
+                        <small>✓ Project estimates</small><br>
+                        <small>✓ Scope of work</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('service')">Use Template</button>
+                </div>
+
+                <!-- Project Estimate Template -->
+                <div class="template-card">
+                    <div class="template-icon">🏗️</div>
+                    <h4>Project Estimate</h4>
+                    <p>For construction, development, or multi-phase projects.</p>
+                    <div class="template-details">
+                        <small>✓ Phase breakdown</small><br>
+                        <small>✓ Labor & materials</small><br>
+                        <small>✓ Timeline milestones</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('project')">Use Template</button>
+                </div>
+
+                <!-- AMC/Maintenance Template -->
+                <div class="template-card">
+                    <div class="template-icon">🔧</div>
+                    <h4>AMC/Maintenance</h4>
+                    <p>For annual maintenance contracts with recurring schedules.</p>
+                    <div class="template-details">
+                        <small>✓ Annual coverage</small><br>
+                        <small>✓ Service tiers</small><br>
+                        <small>✓ Quarterly breakup</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('amc')">Use Template</button>
+                </div>
+
+                <!-- IT/Software Template -->
+                <div class="template-card">
+                    <div class="template-icon">💻</div>
+                    <h4>IT/Software</h4>
+                    <p>For software development, hosting, and IT services.</p>
+                    <div class="template-details">
+                        <small>✓ Development hours</small><br>
+                        <small>✓ Hosting/licensing</small><br>
+                        <small>✓ Support packages</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('itsoftware')">Use Template</button>
+                </div>
+
+                <!-- Training/Consulting Template -->
+                <div class="template-card">
+                    <div class="template-icon">👨‍🏫</div>
+                    <h4>Training/Consulting</h4>
+                    <p>For training sessions, workshops, and consulting engagements.</p>
+                    <div class="template-details">
+                        <small>✓ Per-session pricing</small><br>
+                        <small>✓ Batch discounts</small><br>
+                        <small>✓ Certification fees</small>
+                    </div>
+                    <button class="btn-primary" onclick="loadTemplate('training')">Use Template</button>
+                </div>
+            </div>
         </div>
 
         <!-- Create Quote Tab -->
@@ -398,7 +485,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>💡 MSME Quotation App v3.0 | GST Optional | TDS Compliant | Analytics | Favorites</p>
+        <p>💡 MSME Quotation App v3.0 | GST Optional | TDS Compliant | Templates | Analytics</p>
         <p><small>Built with ❤️ for small business owners | All data stored locally in your browser | 100% Free</small></p>
     </footer>
 
