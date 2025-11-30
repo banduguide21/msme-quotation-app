@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSME Quotation App - Create & Send Quotes in 60 Seconds</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>💼 MSME Quotation App</h1>
+            <p class="subtitle">Create & send professional quotations in 60 seconds</p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="create">Create Quote</button>
+            <button class="tab-btn" data-tab="list">My Quotations</button>
+            <button class="tab-btn" data-tab="templates">Templates</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
+        </div>
+
+        <!-- Create Quote Tab -->
+        <div id="create" class="tab-content active">
+            <form id="quoteForm" class="form-grid">
+                <!-- Customer Section -->
+                <fieldset class="form-section">
+                    <legend>Customer Details</legend>
+                    
+                    <label>Customer Name *</label>
+                    <input type="text" id="customerName" placeholder="Enter customer name" required>
+                    
+                    <label>Company Name</label>
+                    <input type="text" id="companyName" placeholder="Customer's company (optional)">
+                    
+                    <label>Email/Phone</label>
+                    <input type="text" id="customerEmail" placeholder="Email or phone number">
+                    
+                    <label>GSTIN (optional)</label>
+                    <input type="text" id="gstin" placeholder="18-digit GSTIN (for GST calculation)">
+                </fieldset>
+
+                <!-- Quote Items Section -->
+                <fieldset class="form-section">
+                    <legend>Quote Items (Add Line Items)</legend>
+                    <div id="itemsContainer"></div>
+                    <button type="button" id="addItemBtn" class="btn-secondary">+ Add Item/Service</button>
+                </fieldset>
+
+                <!-- Pricing & Tax Section -->
+                <fieldset class="form-section">
+                    <legend>Pricing & Tax</legend>
+                    
+                    <label>Tax (GST Rate %) *</label>
+                    <select id="gstRate" required>
+                        <option value="0">0% (Exempt)</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18" selected>18%</option>
+                        <option value="28">28%</option>
+                    </select>
+                    
+                    <label>Discount (%) </label>
+                    <input type="number" id="discount" placeholder="0" min="0" max="100">
+                    
+                    <label>Payment Terms</label>
+                    <textarea id="paymentTerms" placeholder="e.g., 50% advance, balance on delivery" rows="3"></textarea>
+                    
+                    <label>Quote Validity (Days) *</label>
+                    <input type="number" id="validity" value="7" min="1" required>
+                </fieldset>
+
+                <!-- Company & Notes Section -->
+                <fieldset class="form-section">
+                    <legend>Your Company & Notes</legend>
+                    
+                    <label>Your Company Name *</label>
+                    <input type="text" id="yourCompanyName" placeholder="Your business name" required>
+                    
+                    <label>Your Company GSTIN</label>
+                    <input type="text" id="yourGstin" placeholder="Your 18-digit GSTIN">
+                    
+                    <label>Your Logo (Image URL, optional)</label>
+                    <input type="text" id="logoUrl" placeholder="https://example.com/logo.png">
+                    
+                    <label>Special Notes / Terms</label>
+                    <textarea id="specialNotes" placeholder="Add any special notes, warranty, T&Cs, etc." rows="3"></textarea>
+                </fieldset>
+
+                <!-- Buttons -->
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">📄 Generate Quote</button>
+                    <button type="reset" class="btn-secondary">Clear Form</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- My Quotations Tab -->
+        <div id="list" class="tab-content">
+            <div class="list-controls">
+                <input type="text" id="searchQuotes" placeholder="Search quotations..." class="search-box">
+                <button id="clearAllBtn" class="btn-danger">Delete All</button>
+            </div>
+            <div id="quotationsList" class="quotations-grid"></div>
+            <p id="emptyMessage" style="text-align: center; color: #666; margin-top: 20px;">
+                No quotations yet. Create one to get started!
+            </p>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates" class="tab-content">
+            <h3>Quote Templates</h3>
+            <div class="templates-grid">
+                <div class="template-card" data-template="product">
+                    <h4>📦 Product Quote</h4>
+                    <p>For selling physical products with SKUs and quantities.</p>
+                    <button class="btn-secondary" onclick="loadTemplate('product')">Use Template</button>
+                </div>
+                <div class="template-card" data-template="service">
+                    <h4>🛠️ Service Quote</h4>
+                    <p>For hourly/project-based services and consultations.</p>
+                    <button class="btn-secondary" onclick="loadTemplate('service')">Use Template</button>
+                </div>
+                <div class="template-card" data-template="project">
+                    <h4>🏗️ Project Estimate</h4>
+                    <p>For construction, development, or multi-phase projects.</p>
+                    <button class="btn-secondary" onclick="loadTemplate('project')">Use Template</button>
+                </div>
+                <div class="template-card" data-template="amc">
+                    <h4>🔧 AMC / Maintenance</h4>
+                    <p>For annual maintenance contracts with recurring schedules.</p>
+                    <button class="btn-secondary" onclick="loadTemplate('amc')">Use Template</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content">
+            <h3>App Settings</h3>
+            <fieldset class="form-section">
+                <legend>Default Company Info</legend>
+                <label>Default Company Name</label>
+                <input type="text" id="settingsCompanyName" placeholder="Your business name">
+                
+                <label>Default GSTIN</label>
+                <input type="text" id="settingsGstin" placeholder="Your 18-digit GSTIN">
+                
+                <label>Default Logo URL</label>
+                <input type="text" id="settingsLogoUrl" placeholder="https://example.com/logo.png">
+                
+                <label>Default Payment Terms</label>
+                <textarea id="settingsPaymentTerms" placeholder="Default payment terms" rows="3"></textarea>
+                
+                <button type="button" id="saveSettingsBtn" class="btn-primary">💾 Save Settings</button>
+            </fieldset>
+
+            <fieldset class="form-section">
+                <legend>Data Management</legend>
+                <button type="button" id="exportDataBtn" class="btn-secondary">📥 Export All Data (JSON)</button>
+                <button type="button" id="importDataBtn" class="btn-secondary">📤 Import Data (JSON)</button>
+                <input type="file" id="fileInput" accept=".json" style="display: none;">
+                <button type="button" id="resetAppBtn" class="btn-danger">🔄 Reset App (Delete Everything)</button>
+            </fieldset>
+
+            <div id="settingsMessage" class="message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Quote Preview Modal -->
+    <div id="previewModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="previewContent" class="quote-preview"></div>
+            <div class="modal-actions">
+                <button id="downloadPdfBtn" class="btn-primary">📥 Download PDF</button>
+                <button id="shareWhatsappBtn" class="btn-secondary">📱 Share on WhatsApp</button>
+                <button id="shareEmailBtn" class="btn-secondary">📧 Email Quote</button>
+                <button id="printQuoteBtn" class="btn-secondary">🖨️ Print</button>
+                <button id="closeModalBtn" class="btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>💡 MSME Quotation App v1.0 | Free Tool for Indian MSMEs | Data stored locally in your browser</p>
+        <p><small>Built with ❤️ for small business owners</small></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
