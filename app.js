@@ -1,11 +1,89 @@
-// ===== MSME QUOTATION APP v3.0 - COMPLETE APPLICATION =====
-// Features: GST Optional, TDS, Analytics, Favorites, Recurring Items, Dark Mode, Status Tracking
+// ===== MSME QUOTATION APP v3.0 - WITH TEMPLATES =====
 
 let quotes = [];
 let favorites = { customers: [], items: [], paymentTerms: [] };
 let recurringItems = [];
 let appSettings = { companyName: '', gstin: '', logoUrl: '', paymentTerms: '' };
 let currentQuote = null;
+
+// ===== TEMPLATE DEFINITIONS =====
+const templates = {
+    product: {
+        name: 'Product Quote',
+        items: [
+            { description: 'Product 1 - Premium', qty: 1, price: 10000 },
+            { description: 'Product 2 - Standard', qty: 2, price: 5000 },
+            { description: 'Delivery & Packaging', qty: 1, price: 500 }
+        ],
+        paymentTerms: '50% advance, 50% on delivery',
+        specialNotes: 'All products come with 1-year warranty. Free shipping on orders above ₹50,000.',
+        gstRate: '18',
+        validity: '10'
+    },
+    service: {
+        name: 'Service Quote',
+        items: [
+            { description: 'Consultation & Analysis (8 hours)', qty: 1, price: 8000 },
+            { description: 'Implementation & Support (16 hours)', qty: 1, price: 16000 },
+            { description: 'Training & Handover (4 hours)', qty: 1, price: 4000 }
+        ],
+        paymentTerms: 'Monthly: 30% at start, 40% mid-project, 30% on completion',
+        specialNotes: 'Timeline: 2-3 weeks depending on project scope. Includes post-delivery support for 30 days.',
+        gstRate: '18',
+        validity: '7'
+    },
+    project: {
+        name: 'Project Estimate',
+        items: [
+            { description: 'Phase 1: Planning & Design', qty: 1, price: 50000 },
+            { description: 'Phase 2: Development & Setup', qty: 1, price: 100000 },
+            { description: 'Phase 3: Testing & Deployment', qty: 1, price: 25000 },
+            { description: 'Phase 4: Training & Documentation', qty: 1, price: 15000 }
+        ],
+        paymentTerms: '25% at each phase completion (4 phases)',
+        specialNotes: 'Project timeline: 3-4 months. Includes 2 revision rounds per phase. Maintenance contract available separately.',
+        gstRate: '18',
+        validity: '14'
+    },
+    amc: {
+        name: 'AMC/Maintenance',
+        items: [
+            { description: 'Q1 Maintenance & Support (Jan-Mar)', qty: 1, price: 12500 },
+            { description: 'Q2 Maintenance & Support (Apr-Jun)', qty: 1, price: 12500 },
+            { description: 'Q3 Maintenance & Support (Jul-Sep)', qty: 1, price: 12500 },
+            { description: 'Q4 Maintenance & Support (Oct-Dec)', qty: 1, price: 12500 }
+        ],
+        paymentTerms: 'Quarterly: Payment due by 7th of quarter month',
+        specialNotes: 'Annual Maintenance Contract (AMC). Includes 24/7 support, 4-hour response time, preventive maintenance checks.',
+        gstRate: '18',
+        validity: '30'
+    },
+    itsoftware: {
+        name: 'IT/Software Services',
+        items: [
+            { description: 'Software Development (80 hours)', qty: 1, price: 80000 },
+            { description: 'Server Hosting (Annual, scalable)', qty: 1, price: 12000 },
+            { description: 'SSL Certificate & Security Setup', qty: 1, price: 5000 },
+            { description: 'Technical Support (3 months)', qty: 1, price: 9000 }
+        ],
+        paymentTerms: '40% advance, 30% on development completion, 30% on deployment',
+        specialNotes: 'Includes source code handover, documentation, and training. Post-launch support: 3 months included.',
+        gstRate: '18',
+        validity: '10'
+    },
+    training: {
+        name: 'Training/Consulting',
+        items: [
+            { description: 'Full-Day Workshop (8 hours, per person)', qty: 1, price: 2500 },
+            { description: 'Certification Exam & Materials', qty: 1, price: 500 },
+            { description: 'Post-Training Consultation (1 month)', qty: 1, price: 5000 }
+        ],
+        paymentTerms: '100% advance (group discount available for 10+ participants)',
+        specialNotes: 'Batch discounts: 10-20 people = 5%, 20+ people = 10%. Includes course materials and certificate.',
+        gstRate: '18',
+        validity: '15'
+    }
+};
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,12 +95,66 @@ document.addEventListener('DOMContentLoaded', function() {
     setupSettings();
     setupDarkMode();
     initializeTaxCompliance();
+    setupTemplates();
     updateAnalyticsDashboard();
     renderQuotationsList();
     updateFavoritesList();
     renderRecurringItems();
     setupKeyboardShortcuts();
 });
+
+// ===== TEMPLATE FUNCTIONALITY =====
+function setupTemplates() {
+    // Templates are loaded on-demand when user clicks "Use Template"
+}
+
+function loadTemplate(templateType) {
+    const template = templates[templateType];
+    if (!template) {
+        alert('❌ Template not found');
+        return;
+    }
+    
+    // Switch to Create Quote tab
+    document.querySelector('[data-tab="create"]').click();
+    
+    // Reset form first
+    document.getElementById('quoteForm').reset();
+    
+    // Clear existing items
+    document.getElementById('itemsContainer').innerHTML = '';
+    
+    // Add template items
+    template.items.forEach(item => {
+        const container = document.getElementById('itemsContainer');
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        row.innerHTML = `
+            <input type="text" placeholder="Item/Service description" class="item-description" value="${item.description}" required>
+            <input type="number" placeholder="Qty" class="item-qty" value="${item.qty}" min="1" required>
+            <input type="number" placeholder="Price" class="item-price" value="${item.price}" min="0" step="0.01" required>
+            <input type="number" placeholder="Amount" class="item-amount" value="${(item.qty * item.price).toFixed(2)}" readonly>
+            <button type="button" class="remove-item-btn" onclick="removeItemRow(this)">Remove</button>
+        `;
+        
+        row.querySelector('.item-qty').addEventListener('change', calculateItemAmount);
+        row.querySelector('.item-price').addEventListener('change', calculateItemAmount);
+        container.appendChild(row);
+    });
+    
+    // Set other fields from template
+    document.getElementById('gstRate').value = template.gstRate;
+    document.getElementById('gstApplicable').checked = true;
+    document.getElementById('gstSection').style.display = 'block';
+    document.getElementById('paymentTerms').value = template.paymentTerms;
+    document.getElementById('specialNotes').value = template.specialNotes;
+    document.getElementById('validity').value = template.validity;
+    
+    // Scroll to form
+    document.getElementById('quoteForm').scrollIntoView({ behavior: 'smooth' });
+    
+    alert(`✅ Template "${template.name}" loaded! Customize as needed and generate quote.`);
+}
 
 // ===== TAB NAVIGATION =====
 function setupTabNavigation() {
@@ -142,7 +274,7 @@ function setupKeyboardShortcuts() {
     });
 }
 
-// ===== INDIAN TAX COMPLIANCE - GST OPTIONAL & TDS =====
+// ===== GST & TDS SETUP =====
 function setupGSTOptional() {
     const gstCheckbox = document.getElementById('gstApplicable');
     const gstSection = document.getElementById('gstSection');
@@ -319,6 +451,88 @@ function showPreviewWithCompliance(quote) {
     setupModalActions(quote);
 }
 
+// ===== QUOTATIONS LIST =====
+function setupQuotationsList() {
+    document.getElementById('searchQuotes').addEventListener('input', filterQuotations);
+    document.getElementById('filterStatus').addEventListener('change', filterQuotations);
+    document.getElementById('clearAllBtn').addEventListener('click', function() {
+        if (confirm('Delete all quotations?')) {
+            quotes = [];
+            saveData();
+            renderQuotationsList();
+        }
+    });
+}
+
+function filterQuotations() {
+    const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
+    const statusFilter = document.getElementById('filterStatus').value;
+    
+    const filtered = quotes.filter(q => {
+        const matchesSearch = q.customerName.toLowerCase().includes(searchTerm) || 
+                            q.companyName.toLowerCase().includes(searchTerm);
+        const matchesStatus = !statusFilter || q.status === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
+    
+    renderQuotationsList(filtered);
+}
+
+function renderQuotationsList(filteredQuotes = quotes) {
+    const container = document.getElementById('quotationsList');
+    const emptyMessage = document.getElementById('emptyMessage');
+    
+    if (filteredQuotes.length === 0) {
+        container.innerHTML = '';
+        emptyMessage.style.display = 'block';
+        return;
+    }
+    
+    emptyMessage.style.display = 'none';
+    container.innerHTML = filteredQuotes.map(q => `
+        <div class="quotation-card">
+            <h4>${q.customerName}</h4>
+            <p><b>Company:</b> ${q.companyName || 'N/A'}</p>
+            <p><b>Amount:</b> ₹${parseFloat(q.total).toFixed(2)}</p>
+            <p><b>Date:</b> ${q.date}</p>
+            <p><b>Status:</b> ${q.status || 'Draft'}</p>
+            <div class="actions">
+                <button onclick="viewQuotation(${q.id})">👁️ View</button>
+                <button onclick="duplicateQuotation(${q.id})">📋 Duplicate</button>
+                <button class="delete-btn" onclick="deleteQuotation(${q.id})">🗑️ Delete</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function viewQuotation(id) {
+    const quote = quotes.find(q => q.id === id);
+    if (quote) showPreviewWithCompliance(quote);
+}
+
+function duplicateQuotation(id) {
+    const original = quotes.find(q => q.id === id);
+    if (!original) return;
+    
+    const newQuote = JSON.parse(JSON.stringify(original));
+    newQuote.id = Date.now();
+    newQuote.date = new Date().toLocaleDateString('en-IN');
+    newQuote.status = 'Draft';
+    
+    quotes.push(newQuote);
+    saveData();
+    renderQuotationsList();
+    alert('✅ Quotation duplicated!');
+}
+
+function deleteQuotation(id) {
+    if (confirm('Delete this quotation?')) {
+        quotes = quotes.filter(q => q.id !== id);
+        saveData();
+        renderQuotationsList();
+    }
+}
+
 // ===== FAVORITES =====
 function updateFavoritesList() {
     const custList = document.getElementById('favoriteCustomers');
@@ -402,94 +616,13 @@ function addRecurringToQuote(id) {
     row.querySelector('.item-price').addEventListener('change', calculateItemAmount);
     itemsContainer.appendChild(row);
     alert('✅ Item added to quote!');
+    document.querySelector('[data-tab="create"]').click();
 }
 
 function removeRecurringItem(id) {
     recurringItems = recurringItems.filter(i => i.id !== id);
     saveData();
     renderRecurringItems();
-}
-
-// ===== QUOTATIONS LIST =====
-function setupQuotationsList() {
-    document.getElementById('searchQuotes').addEventListener('input', filterQuotations);
-    document.getElementById('filterStatus').addEventListener('change', filterQuotations);
-    document.getElementById('clearAllBtn').addEventListener('click', function() {
-        if (confirm('Delete all quotations?')) {
-            quotes = [];
-            saveData();
-            renderQuotationsList();
-        }
-    });
-}
-
-function filterQuotations() {
-    const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
-    const statusFilter = document.getElementById('filterStatus').value;
-    
-    const filtered = quotes.filter(q => {
-        const matchesSearch = q.customerName.toLowerCase().includes(searchTerm) || 
-                            q.companyName.toLowerCase().includes(searchTerm);
-        const matchesStatus = !statusFilter || q.status === statusFilter;
-        return matchesSearch && matchesStatus;
-    });
-    
-    renderQuotationsList(filtered);
-}
-
-function renderQuotationsList(filteredQuotes = quotes) {
-    const container = document.getElementById('quotationsList');
-    const emptyMessage = document.getElementById('emptyMessage');
-    
-    if (filteredQuotes.length === 0) {
-        container.innerHTML = '';
-        emptyMessage.style.display = 'block';
-        return;
-    }
-    
-    emptyMessage.style.display = 'none';
-    container.innerHTML = filteredQuotes.map(q => `
-        <div class="quotation-card">
-            <h4>${q.customerName}</h4>
-            <p><b>Company:</b> ${q.companyName || 'N/A'}</p>
-            <p><b>Amount:</b> ₹${parseFloat(q.total).toFixed(2)}</p>
-            <p><b>Date:</b> ${q.date}</p>
-            <p><b>Status:</b> ${q.status || 'Draft'}</p>
-            <div class="actions">
-                <button onclick="viewQuotation(${q.id})">👁️ View</button>
-                <button onclick="duplicateQuotation(${q.id})">📋 Duplicate</button>
-                <button class="delete-btn" onclick="deleteQuotation(${q.id})">🗑️ Delete</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function viewQuotation(id) {
-    const quote = quotes.find(q => q.id === id);
-    if (quote) showPreviewWithCompliance(quote);
-}
-
-function duplicateQuotation(id) {
-    const original = quotes.find(q => q.id === id);
-    if (!original) return;
-    
-    const newQuote = JSON.parse(JSON.stringify(original));
-    newQuote.id = Date.now();
-    newQuote.date = new Date().toLocaleDateString('en-IN');
-    newQuote.status = 'Draft';
-    
-    quotes.push(newQuote);
-    saveData();
-    renderQuotationsList();
-    alert('✅ Quotation duplicated!');
-}
-
-function deleteQuotation(id) {
-    if (confirm('Delete this quotation?')) {
-        quotes = quotes.filter(q => q.id !== id);
-        saveData();
-        renderQuotationsList();
-    }
 }
 
 // ===== ANALYTICS =====
